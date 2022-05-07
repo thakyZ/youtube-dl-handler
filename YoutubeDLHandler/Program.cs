@@ -64,7 +64,7 @@ namespace YoutubeDLHandler
             string destination = Destination;
             if (!Directory.Exists(destination))
             {
-                Logger.WriteErrorLine("Destination directory {0} does not exist. Please run the application without any arguments to configure the download destination.");
+                Logger.WriteErrorLine("Destination directory {0} does not exist. Please run the application without any arguments to configure the download destination.", destination);
                 Console.ReadKey();
                 return;
             }
