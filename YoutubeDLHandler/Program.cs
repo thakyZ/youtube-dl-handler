@@ -3,17 +3,20 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Windows.Forms;
 
-namespace YoutubeDLHandler
+namespace YouTubeDLHandler
 {
     // watch?v= Regex v=(?'v'[a-zA-Z0-9-_]+)
-    class Program
+    public class Program
     {
-        static readonly string DEFAULT_YOUTUBE_DL = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "youtube-dl", "youtube-dl.exe");
-        static readonly string DEFAULT_DESTINATION = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        internal static readonly string DEFAULT_YOUTUBE_DL = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "youtube-dl", "youtube-dl.exe");
+        private static readonly string DEFAULT_DESTINATION = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+        private static string CURRENT_YOUTUBE_DL = DEFAULT_YOUTUBE_DL;
+        private static string CURRENT_DESTINATION = DEFAULT_DESTINATION;
 
-        static string Destination => string.IsNullOrWhiteSpace(Properties.Settings.Default.Destination) ? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos) : Properties.Settings.Default.Destination;
+        private static readonly string ASSEMBLY_LOCATION = Assembly.GetAssembly(typeof(Program)).Location; 
 
         static string[] blacklist = new string[]
         {
@@ -21,6 +24,39 @@ namespace YoutubeDLHandler
             "--external-downloader", "-a", "--batch-file", "-o", "--output",
             "--load-info-json", "--cookies", "--cache-dir", "--ffmpeg-location", "--exec"
         };
+
+        public Program()
+        {
+            if (File.Exists(Path.Join(ASSEMBLY_LOCATION, "settings.ini")))
+            {
+                try {
+                    using (FileStream fileStream = new FileStream(Path.Join(ASSEMBLY_LOCATION, "settings.ini"), FileMode.Open))
+                    {
+                        using (StreamReader streamReader = new StreamReader(fileStream))
+                        {
+                            var fileContents = streamReader.ReadToEnd();
+                            var fileLines = fileContents.Split(new string[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (string line in fileLines)
+                            {
+                                if (line.StartsWith("DESTINATION=\"") && line.EndsWith("\""))
+                                {
+                                    var tempLine = line.Replace("DESTINATION=\"", "");
+                                    tempLine = tempLine.Remove(tempLine.Length - 1, 1);
+                                    CURRENT_DESTINATION = string.IsNullOrWhiteSpace(tempLine) ? DEFAULT_DESTINATION : tempLine;
+                                }
+                            }
+                            streamReader.Close();
+                        }
+                        fileStream.Close();
+                    }
+                }
+                catch (Exception exception)
+                {
+                    WaitAndExit("Error Reading Config.\n{0}", exception);
+                    return;
+                }
+            }
+        }
 
         [STAThread]
         static void Main(string[] args)
@@ -44,8 +80,13 @@ namespace YoutubeDLHandler
             // Check youtube-dl
             if (!File.Exists(DEFAULT_YOUTUBE_DL))
             {
-                WaitAndExit("youtube-dl.exe not found. Did you install the software correctly?");
-                return;
+                CURRENT_YOUTUBE_DL = Detector.CheckForYouTubeDownloader();
+
+                if (!File.Exists(CURRENT_YOUTUBE_DL))
+                {
+                    WaitAndExit("youtube-dl.exe not found. Did you install the software correctly?");
+                    return;
+                }
             }
 
             /* Arguments */
@@ -61,7 +102,7 @@ namespace YoutubeDLHandler
             }
 
             // output folder
-            string destination = Destination;
+            string destination = CURRENT_DESTINATION;
             if (!Directory.Exists(destination))
             {
                 Logger.WriteErrorLine("Destination directory {0} does not exist. Please run the application without any arguments to configure the download destination.");
@@ -86,24 +127,29 @@ namespace YoutubeDLHandler
 
             // Show output
             ShowRecentFile(destination);
-            
+
 #if DEBUG
             Console.WriteLine("Press any key to exit.");
             Console.ReadKey();
 #endif
         }
 
+        private static string GetProgramName()
+        {
+            return File.Exists(CURRENT_YOUTUBE_DL) ? Path.GetFileNameWithoutExtension(CURRENT_YOUTUBE_DL) : "unknown";
+        }
+
         // Runs youtube-dl
         static void Handler(string destination, string target, string args)
         {
-            if (!File.Exists(DEFAULT_YOUTUBE_DL)) throw new FileNotFoundException("youtube-dl.exe not found.");
+            if (!File.Exists(CURRENT_YOUTUBE_DL)) throw new FileNotFoundException($"{GetProgramName()}.exe not found.");
 
             Process process = new Process();
-            process.StartInfo.FileName = DEFAULT_YOUTUBE_DL;
+            process.StartInfo.FileName = CURRENT_YOUTUBE_DL;
             string path = Path.Combine(destination, "%(title)s.%(ext)s");
             process.StartInfo.Arguments = $"--newline --no-playlist -o {destination} {args} \"{target}\"";
 
-            Console.WriteLine(" youtube-dl: {0}", Path.GetFullPath(process.StartInfo.FileName));
+            Console.WriteLine(" {0}: {1}", GetProgramName(), Path.GetFullPath(process.StartInfo.FileName));
             Console.WriteLine(" arguments: {0}", process.StartInfo.Arguments);
 
             process.StartInfo.UseShellExecute = false;
@@ -115,7 +161,7 @@ namespace YoutubeDLHandler
             // Handle output
             process.OutputDataReceived += (sender, e) => Console.WriteLine(e.Data);
             process.ErrorDataReceived += (sender, e) => Logger.WriteErrorLine(e.Data);
-            
+
             // Wait for youtube-dl
             process.Start();
             process.BeginOutputReadLine();
@@ -141,16 +187,67 @@ namespace YoutubeDLHandler
             // Download youtube-dl
             if (!File.Exists(DEFAULT_YOUTUBE_DL))
             {
-                Console.WriteLine("Downloading youtube-dl...");
-                Downloader.Download("https://yt-dl.org/latest/youtube-dl.exe", DEFAULT_YOUTUBE_DL);
-                Console.WriteLine("Download complete.");
+                uint input = 0;
+                var (Left, Top) = Console.GetCursorPosition();
+                while (input == 0)
+                {
+                    Console.Write("Would you rather use YouTube-DL or YT-DLP? [1/2]: ");
+                    var _input = Console.ReadLine();
+                    switch (_input)
+                    {
+                        case "1":
+                            input = 1;
+                            break;
+                        case "2":
+                            input = 2;
+                            break;
+                        default:
+                            Console.SetCursorPosition(Left, Top);
+                            Console.Write(new string(' ', 50 + _input.Length));
+                            Console.SetCursorPosition(Left, Top);
+                            break;
+                    }
+                }
+               
+                if (input == 1)
+                {
+                    Console.WriteLine("Downloading youtube-dl...");
+                    Downloader.Download("https://yt-dl.org/latest/youtube-dl.exe", DEFAULT_YOUTUBE_DL);
+                    Console.WriteLine("Download complete.");
+                }
+                else
+                {
+                    Console.WriteLine("Downloading yt-dlp...");
+                    Downloader.Download("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", DEFAULT_YOUTUBE_DL);
+                    Console.WriteLine("Download complete.");
+                }
             }
 
-            Console.WriteLine("Download destination (empty for 'My Videos'):");
-            Properties.Settings.Default.Destination = Console.ReadLine();
-            Properties.Settings.Default.Save();
+            Console.WriteLine($"Download destination (empty for '{Environment.GetFolderPath(Environment.SpecialFolder.MyVideos)}'):");
+            
+            if (!File.Exists(Path.Join(ASSEMBLY_LOCATION, "settings.ini")))
+            {
+                var newPath = Console.ReadLine();
+                CURRENT_DESTINATION = newPath;
+                try {
+                    using (FileStream fileStream = new FileStream(Path.Join(ASSEMBLY_LOCATION, "settings.ini"), FileMode.CreateNew))
+                    {
+                        using (StreamWriter streamWriter = new StreamWriter(fileStream))
+                        {
+                            streamWriter.WriteLine($"DESTINATION=\"{newPath}\"");
+                            streamWriter.Close();
+                        }
+                        fileStream.Close();
+                    }
+                }
+                catch (Exception exception)
+                {
+                    WaitAndExit("Error Writing Config.\n{0}", exception);
+                    return;
+                }
+            }
         }
-        
+
         static void WaitAndExit(string message, params object[] args)
         {
             Console.WriteLine(message, args);
