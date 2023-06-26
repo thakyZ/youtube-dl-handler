@@ -3,41 +3,49 @@ using System.IO;
 
 namespace YouTubeDLHandler
 {
-    public static class Detector
+    internal static class Detector
     {
-        public static bool ExistsOnPath(string fileName)
+        internal static bool ExistsOnPath(string fileName)
         {
             return GetFullPath(fileName) != null;
         }
 
-        private static string CheckFileExtension(string filePath, string[] extensions)
+        private static string? CheckFileExtension(string filePath, string[] extensions)
         {
             foreach (var extension in extensions)
             {
                 var fullPath = string.Concat(filePath, extension);
-                if (File.Exists(fullPath))
+                if (File.Exists(fullPath)) {
+                    Logger.WriteDebugLine("fullPath = \"{0}\"", fullPath);
                     return fullPath;
+                } else
+                    Logger.WriteDebugLine("fullPath = \"{0}\"", fullPath);
             }
             return null;
         }
 
-        public static string GetFullPath(string fileName)
+        internal static string? GetFullPath(string fileName)
         {
             if (File.Exists(fileName))
                 return Path.GetFullPath(fileName);
 
-            var values = Environment.GetEnvironmentVariable("PATH");
+            string values = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
 
-            var extensions = Environment.GetEnvironmentVariable("PATHEXT").Split(Path.PathSeparator);
+            string[] extensions = Environment.GetEnvironmentVariable("PATHEXT")?.Split(Path.PathSeparator) ?? new string[] { ".EXE" };
 
             foreach (var path in values.Split(Path.PathSeparator))
             {
                 var fullPath = Path.Combine(path, fileName);
-                if (File.Exists(fullPath))
+                if (File.Exists(fullPath)) {
+                    Logger.WriteDebugLine("fullPath = \"{0}\"", fullPath);
                     return fullPath;
-                else if (Path.GetFileName(fileName).Split('.').Length == 1)
-                    return CheckFileExtension(fullPath, extensions);
-
+                } else if (Path.GetFileName(fileName).Split('.').Length == 1) {
+                    Logger.WriteDebugLine("fileName.Length = \"{0}\"", Path.GetFileName(fileName).Split('.').Length);
+                    Logger.WriteDebugLine("fullPath = \"{0}\"", fullPath);
+                    var fileExtension = CheckFileExtension(fullPath, extensions);
+                    if (File.Exists(fileExtension))
+                        return fileExtension;
+                }
             }
             return null;
         }
@@ -46,13 +54,13 @@ namespace YouTubeDLHandler
             "youtube-dl", "yt-dlp"
         };
         
-#pragma warning disable VSSpell001 // Spell Check
-        public static string CheckForYouTubeDownloader()
+        internal static string? CheckForYouTubeDownloader()
         {
             foreach (string program in programsToCheck)
             {
                 if (ExistsOnPath(program))
                 {
+                    Logger.WriteDebugLine("program = \"{0}\"", program);
                     return GetFullPath(program);
                 }
             }

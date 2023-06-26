@@ -1,24 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net7.0-windows</TargetFramework>
-    <OutputType>WinExe</OutputType>
-    <IsWebBootstrapper>False</IsWebBootstrapper>
-    <PublishUrl>publish\</PublishUrl>
-    <Install>True</Install>
-    <InstallFrom>Disk</InstallFrom>
-    <UpdateEnabled>False</UpdateEnabled>
-    <UpdateMode>Foreground</UpdateMode>
-    <UpdateInterval>7</UpdateInterval>
-    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
-    <UpdatePeriodically>False</UpdatePeriodically>
-    <UpdateRequired>False</UpdateRequired>
-    <MapFileExtensions>True</MapFileExtensions>
-    <ApplicationRevision>0</ApplicationRevision>
-    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
-    <UseApplicationTrust>False</UseApplicationTrust>
-    <BootstrapperEnabled>True</BootstrapperEnabled>
-    <UseWindowsForms>True</UseWindowsForms>
-    <ImportWindowsDesktopTargets>True</ImportWindowsDesktopTargets>
+    <OutputType>Exe</OutputType>
+    <UseWPF>true</UseWPF>
+    <TargetFramework>net7.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>YouTubeDLHandler.Program</StartupObject>
@@ -32,8 +19,4 @@
     <FileVersion>1.0.0.0</FileVersion>
     <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0" />
-  </ItemGroup>
 </Project>

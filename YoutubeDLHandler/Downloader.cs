@@ -6,13 +6,12 @@ using System.Threading.Tasks;
 
 namespace YouTubeDLHandler
 {
-#pragma warning disable VSSpell001 // Spell Check
-    public static class Downloader
+    internal static class Downloader
     {
-        static readonly HttpClient client = new();
+        private static readonly HttpClient client = new();
 
         // Borrowed from: https://learn.microsoft.com/en-us/dotnet/api/system.net.http.httpclient?view=net-7.0
-        static async Task DownloadAsync(string url, string destination)
+        private static async Task DownloadAsync(string url, string destination)
         {
             ServicePointManager.Expect100Continue = true;
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
@@ -35,14 +34,13 @@ namespace YouTubeDLHandler
             }
             catch (HttpRequestException e)
             {
-                Console.WriteLine("\nException Caught!");
-                Console.WriteLine("Message :{0} ", e.Message);
+                Logger.WriteErrorLine("\nException Caught!\n\nMessage: {0}", e.Message);
             }
         }
 
-        public static void Download(string url, string destination)
+        internal static void Download(string url, string destination)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+            Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? Path.Join(Program.ASSEMBLY_LOCATION, "downloads"));
             Task.Run(async () => await DownloadAsync(url, destination));
         }
     }
